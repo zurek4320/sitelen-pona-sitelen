@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Toki Pona Renderer (ilo sitelen)</title>
+
+<style>
+    body {
+        font-family: "Segoe UI", sans-serif;
+        margin: 0;
+        background: linear-gradient(135deg, #ece9e6, #ffffff);
+    }
+
+    h1 {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    p.subtitle {
+        text-align: center;
+        color: #666;
+        margin-top: 0;
+        margin-bottom: 20px;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: 40px auto;
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+
+    textarea {
+        width: 100%;
+        height: 150px;
+        font-size: 16px;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+        resize: vertical;
+    }
+
+    textarea:focus {
+        outline: none;
+        border-color: #4CAF50;
+    }
+
+    .controls {
+        margin-top: 10px;
+    }
+
+    button {
+        margin: 5px 5px 10px 0;
+        padding: 10px 14px;
+        border: none;
+        border-radius: 8px;
+        background: #4CAF50;
+        color: white;
+        font-size: 14px;
+        cursor: pointer;
+        transition: 0.2s;
+    }
+
+    button:hover {
+        background: #45a049;
+        transform: translateY(-1px);
+    }
+
+    input[type="file"] {
+        margin-top: 5px;
+    }
+
+    /* 👇 Load your nasin nanpa font */
+    @font-face {
+        font-family: "nasin-nanpa";
+        src: url("nasin-nanpa.otf");
+    }
+
+    .label {
+        font-weight: bold;
+        margin-top: 15px;
+        margin-bottom: 5px;
+    }
+
+    #preview {
+    font-family: "nasin-nanpa", sans-serif;
+    border: 2px dashed #ffb300;
+    padding: 20px;
+    min-height: 120px;
+    background: #fff8e1;
+    font-size: 24px;
+    border-radius: 10px;
+
+    /* NEW: preserve newlines */
+    white-space: pre-wrap;
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>Toki Pona Renderer</h1>
+    <p class="subtitle">ilo sitelen pi toki pona</p>
+
+    <div class="label">
+        Input (toki insa)
+    </div>
+    <textarea id="inputText" placeholder="Type Toki Pona here... / o sitelen e toki pona lon ni..."></textarea>
+
+    <div class="controls">
+        <button onclick="renderText()">Render / o pana e sitelen</button>
+        <button onclick="exportText()">Export .txt / o pana e lipu .txt</button>
+        <br>
+        <input type="file" id="fileInput" accept=".txt">
+        <span>Load file / o kama jo e lipu</span>
+    </div>
+
+    <div class="label">
+        Preview (lukin)
+    </div>
+    <div id="preview"></div>
+
+</div>
+
+<script>
+const input = document.getElementById("inputText");
+const preview = document.getElementById("preview");
+const fileInput = document.getElementById("fileInput");
+
+const tpDict = {
+"a":"󱤀","aa":"󱤀󱤀","aaa":"󱤀󱤀󱤀",
+"akesi":"󱤁","ala":"󱤂","alasa":"󱤃","ale":"󱤄","ali":"󱤄",
+"anpa":"󱤅","ante":"󱤆","anu":"󱤇","apeja":"󱦡","awen":"󱤈",
+"e":"󱤉","en":"󱤊","epiku":"󱦃","esun":"󱤋",
+"ijo":"󱤌","ike":"󱤍","ilo":"󱤎","insa":"󱤏",
+"jaki":"󱤐","jan":"󱤑","jasima":"󱥿","jelo":"󱤒","jo":"󱤓",
+"kala":"󱤔","kalama":"󱤕","kama":"󱤖","kasi":"󱤗",
+"ken":"󱤘","kepeken":"󱤙","kepen":"󱤙",
+"kije":"󱦀","kijete":"󱦀","kijetesantakalu":"󱦀",
+"kili":"󱤚","kin":"󱥹","kipisi":"󱥻","kiwen":"󱤛",
+"ko":"󱤜","kokosila":"󱦄","kon":"󱤝","ku":"󱦈",
+"kule":"󱤞","kulupu":"󱤟","kute":"󱤠",
+"la":"󱤡","lanpan":"󱦅","lape":"󱤢","laso":"󱤣",
+"lawa":"󱤤","leko":"󱥼","len":"󱤥","lete":"󱤦",
+"li":"󱤧","lili":"󱤨","linja":"󱤩","lipu":"󱤪",
+"loje":"󱤫","lon":"󱤬","luka":"󱤭","lukin":"󱤮",
+"lupa":"󱤯","ma":"󱤰","majuna":"󱦢","mama":"󱤱",
+"mani":"󱤲","meli":"󱤳","meso":"󱦂","mi":"󱤴",
+"mije":"󱤵","misikeke":"󱦇","moku":"󱤶","moli":"󱤷",
+"monsi":"󱤸","monsuta":"󱥽","mu":"󱤹","mun":"󱤺",
+"musi":"󱤻","mute":"󱤼","n":"󱦆","namako":"󱥸",
+"nanpa":"󱤽","nasa":"󱤾","nasin":"󱤿","nena":"󱥀",
+"ni":"󱥁","nimi":"󱥂","noka":"󱥃","o":"󱥄",
+"oko":"󱥺","olin":"󱥅","ona":"󱥆","open":"󱥇",
+"pakala":"󱥈","pake":"󱦠","pali":"󱥉","palisa":"󱥊",
+"pan":"󱥋","pana":"󱥌","pi":"󱥍","pilin":"󱥎",
+"pimeja":"󱥏","pini":"󱥐","pipi":"󱥑","poka":"󱥒",
+"poki":"󱥓","pona":"󱥔","powe":"󱦣","pu":"󱥕",
+"sama":"󱥖","seli":"󱥗","selo":"󱥘","seme":"󱥙",
+"sewi":"󱥚","sijelo":"󱥛","sike":"󱥜","sin":"󱥝",
+"sina":"󱥞","sinpin":"󱥟","sitelen":"󱥠","soko":"󱦁",
+"sona":"󱥡","soweli":"󱥢","suli":"󱥣","suno":"󱥤",
+"supa":"󱥥","suwi":"󱥦","tan":"󱥧","taso":"󱥨",
+"tawa":"󱥩","telo":"󱥪","ten":"󱥫","tenpo":"󱥫",
+"toki":"󱥬","tomo":"󱥭","tonsi":"󱥾","tu":"󱥮",
+"unpa":"󱥯","uta":"󱥰","utala":"󱥱","walo":"󱥲",
+"wan":"󱥳","waso":"󱥴","wawa":"󱥵","weka":"󱥶",
+"wile":"󱥷"
+};
+
+const symbolMap = {
+    "[": "󱦐",
+    "]": "󱦑",
+    "'": "'",
+    ",": "、",
+    ".": "󱦜",
+    ":": "：",
+    ";": "；",
+    "-": "－",
+    "=": "＝"
+};
+
+function convert(text) {
+    let result = "";
+    const lines = text.split("\n");
+
+    for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
+        const line = lines[lineIndex];
+
+        // Split into: words, whitespace, or punctuation/symbol runs
+        const chunks = line.match(/[A-Za-z]+|\s+|[^A-Za-z\s]+/g) || [];
+
+        for (const chunk of chunks) {
+            // Spaces: skip single space, keep 2+ spaces as one visible space
+            if (/^\s+$/.test(chunk)) {
+                if (chunk.length >= 2) result += " ";
+                continue;
+            }
+
+            // Normal word
+            if (/^[A-Za-z]+$/.test(chunk)) {
+                const lower = chunk.toLowerCase();
+                if (tpDict[lower]) {
+                    result += tpDict[lower];
+                } else {
+                    for (const ch of chunk) {
+                        result += symbolMap[ch] || ch;
+                    }
+                }
+                continue;
+            }
+
+            // Punctuation / symbols
+            for (const ch of chunk) {
+                result += symbolMap[ch] || ch;
+            }
+        }
+
+        if (lineIndex < lines.length - 1) result += "\n";
+    }
+
+    return result;
+}
+
+function renderText() {
+    preview.textContent = convert(input.value);
+}
+
+function exportText() {
+    const blob = new Blob([preview.textContent], { type: "text/plain" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "toki-pona.txt";
+    link.click();
+}
+
+fileInput.addEventListener("change", function () {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+        input.value = e.target.result;
+        renderText();
+    };
+    reader.readAsText(file);
+});
+
+input.addEventListener("input", renderText);
+</script>
+
+</body>
+</html>
